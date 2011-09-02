@@ -87,14 +87,9 @@ private[kafka] class OffsetArraySend(offsets: Array[Long]) extends Send {
 
   def writeTo(channel: GatheringByteChannel): Int = {
     expectIncomplete()
-    var written = 0
-    if(header.hasRemaining)
-      written += channel.write(header)
-    if(!header.hasRemaining && contentBuffer.hasRemaining)
-      written += channel.write(contentBuffer)
-
-    if(!contentBuffer.hasRemaining)
+    val written = channel.write(Array(header, contentBuffer))
+    if (!header.hasRemaining && !contentBuffer.hasRemaining)
       complete = true
-    written
+    written.asInstanceOf[Int]
   }
 }

@@ -92,8 +92,8 @@ object HadoopConsumerDependencies {
 
 object TestDependencies {
   val easymock = "org.easymock" % "easymock" % "3.0" % "test"
-  val junit = "junit" % "junit" % "4.1" % "test"
-  val scalaTest = "org.scalatest" % "scalatest" % "1.2" % "test"
+  val junit = "junit" % "junit" % "4.5" % "test"
+  val scalaTest = "org.scalatest" % "scalatest_2.9.1" % "1.6.1" % "test"
   val deps = Seq(easymock, junit, scalaTest)
 }
 
@@ -102,7 +102,8 @@ object KafkaBuild extends Build {
   lazy val core = Project("core-kafka", file("core"),
     settings = buildSettings ++ Seq(
       libraryDependencies ++= CoreDependencies.deps ++ TestDependencies.deps,
-      resolvers := Resolvers.kafkaResolvers
+      resolvers := Resolvers.kafkaResolvers,
+      parallelExecution in Test := false
     )
   )
 

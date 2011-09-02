@@ -26,6 +26,7 @@ import kafka.api._
 import scala.math._
 import kafka.common.MessageSizeTooLargeException
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicInteger
 
 object SyncProducer {
   val RequestKey: Short = 0
@@ -40,6 +41,7 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
   private val MaxConnectBackoffMs = 60000
   private var channel : SocketChannel = null
   private var sentOnConnection = 0
+  private val outstandingAcks = new AtomicInteger(0)
   private val lock = new Object()
   @volatile
   private var shutdown: Boolean = false
@@ -76,7 +78,7 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
   /**
    * Common functionality for the public send methods
    */
-  private def send(send: BoundedByteBufferSend) {
+  private def send(send: BoundedByteBufferSend, ackExpected: Boolean) {
     lock synchronized {
       verifySendBuffer(send.buffer.slice)
       val startTime = SystemTime.nanoseconds
@@ -84,6 +86,9 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
 
       try {
         send.writeCompletely(channel)
+        if (ackExpected)
+          outstandingAcks.incrementAndGet()
+        consumeAnyAcks(false)
       } catch {
         case e : java.io.IOException =>
           // no way to tell if write succeeded. Disconnect and re-throw exception to let client handle retry
@@ -95,6 +100,7 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
       // TODO: do we still need this?
       sentOnConnection += 1
       if(sentOnConnection >= config.reconnectInterval) {
+        waitForAcks()
         disconnect()
         channel = connect()
         sentOnConnection = 0
@@ -111,9 +117,11 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
     verifyMessageSize(messages)
     val setSize = messages.sizeInBytes.asInstanceOf[Int]
     trace("Got message set with " + setSize + " bytes to send")
-    send(new BoundedByteBufferSend(new ProducerRequest(topic, partition, messages)))
+    send(new BoundedByteBufferSend(
+      if (config.ackNeeded) new AckedProducerRequest(topic, partition, messages)
+      else new ProducerRequest(topic, partition, messages)), config.ackNeeded)
   }
- 
+
   def send(topic: String, messages: ByteBufferMessageSet): Unit = send(topic, ProducerRequest.RandomPartition, messages)
 
   def multiSend(produces: Array[ProducerRequest]) {
@@ -121,7 +129,9 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
       verifyMessageSize(request.messages)
     val setSize = produces.foldLeft(0L)(_ + _.messages.sizeInBytes)
     trace("Got multi message sets with " + setSize + " bytes to send")
-    send(new BoundedByteBufferSend(new MultiProducerRequest(produces)))
+    send(new BoundedByteBufferSend(
+      if (config.ackNeeded) new AckedMultiProducerRequest(produces)
+      else new MultiProducerRequest(produces)), config.ackNeeded)
   }
 
   def startConnection() {
@@ -135,6 +145,41 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
       disconnect()
       shutdown = true
     }
+  }
+
+  def waitForAcks() {
+    if (outstandingAcks.get > 0) {
+      logger.debug("Waiting for ACKs from broker")
+      while (outstandingAcks.get > 0)
+        consumeAnyAcks(true)
+      logger.debug("All ACKs received from broker")
+    }
+  }
+
+  private def consumeAnyAcks(blocking: Boolean) {
+    if (outstandingAcks.get > 0) {
+      try {
+        channel.configureBlocking(blocking)
+        val buff = ByteBuffer.allocate(256)
+        val acks = channel.read(buff)
+        if (acks > 0) {
+          //buff.flip()
+          var currentOutstanding = outstandingAcks.get
+          while (!outstandingAcks.compareAndSet(currentOutstanding, max(currentOutstanding - acks, 0)))
+            currentOutstanding = outstandingAcks.get
+          trace("Read " + acks + " ACKs from broker, " + outstandingAcks.get + " remain")
+        }
+      } catch {
+        case e  =>
+          logger.error("Error while waiting for ack")
+          throw e
+      }
+    }
+  }
+
+  def numOutstandingRequests(): Int = {
+    consumeAnyAcks(false)
+    outstandingAcks.get
   }
 
   private def verifyMessageSize(messages: ByteBufferMessageSet) {

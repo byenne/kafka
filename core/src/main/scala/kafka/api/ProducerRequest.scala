@@ -81,3 +81,18 @@ class ProducerRequest(val topic: String,
   override def hashCode: Int = 31 + (17 * partition) + topic.hashCode + messages.hashCode
 
 }
+
+/**
+ * Same as ProducerRequest, only the id changes
+ */
+class AckedProducerRequest(topic: String, partition: Int, messages: ByteBufferMessageSet)
+        extends ProducerRequest(topic, partition, messages) {
+  override val id = RequestKeys.AckedProduce
+  override def toString: String = "Acked" + super.toString
+  override def equals(other: Any): Boolean = {
+    other match {
+      case that: AckedProducerRequest => that.isInstanceOf[AckedProducerRequest] && super.equals(that)
+      case _ => false
+    }
+  }
+}

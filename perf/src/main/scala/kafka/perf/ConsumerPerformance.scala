@@ -25,7 +25,7 @@ import joptsimple._
 import org.apache.log4j.Logger
 import kafka.message.Message
 import org.I0Itec.zkclient.ZkClient
-import kafka.utils.{ZKStringSerializer, Utils}
+import kafka.utils.{ZKStringSerializer, ZkUtils}
 import java.util.{Random, Properties}
 import kafka.consumer._
 import java.text.SimpleDateFormat
@@ -51,7 +51,7 @@ object ConsumerPerformance {
     }
 
     // clean up zookeeper state for this group id for every perf run
-    Utils.tryCleanupZookeeper(config.consumerConfig.zkConnect, config.consumerConfig.groupId)
+    ZkUtils.tryCleanupZookeeper(config.consumerConfig.zkConnect, config.consumerConfig.groupId)
 
     val consumerConnector: ConsumerConnector = Consumer.create(config.consumerConfig)
 

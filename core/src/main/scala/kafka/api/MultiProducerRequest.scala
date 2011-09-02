@@ -53,5 +53,10 @@ class MultiProducerRequest(val produces: Array[ProducerRequest]) extends Request
       buffer.append(",")
     }
     buffer.toString
-  }  
+  }
+}
+
+class AckedMultiProducerRequest(produces: Array[ProducerRequest]) extends MultiProducerRequest(produces) {
+  override val id = RequestKeys.AckedMultiProduce
+  override def toString: String = "Acked-" + super.toString
 }

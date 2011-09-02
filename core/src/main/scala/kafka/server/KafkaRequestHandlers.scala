@@ -41,6 +41,8 @@ private[kafka] class KafkaRequestHandlers(val logManager: LogManager) extends Lo
       case RequestKeys.MultiFetch => handleMultiFetchRequest _
       case RequestKeys.MultiProduce => handleMultiProducerRequest _
       case RequestKeys.Offsets => handleOffsetRequest _
+      case RequestKeys.AckedProduce => handleAckedProduceRequest _
+      case RequestKeys.AckedMultiProduce => handleAckedMultiProducerRequest _
       case _ => throw new IllegalStateException("No mapping found for handler id " + requestTypeId)
     }
   }
@@ -48,7 +50,6 @@ private[kafka] class KafkaRequestHandlers(val logManager: LogManager) extends Lo
   def handleProducerRequest(receive: Receive): Option[Send] = {
     val sTime = SystemTime.milliseconds
     val request = ProducerRequest.readFrom(receive.buffer)
-
     if(requestLogger.isTraceEnabled)
       requestLogger.trace("Producer request " + request.toString)
     handleProducerRequest(request, "ProduceRequest")
@@ -64,7 +65,25 @@ private[kafka] class KafkaRequestHandlers(val logManager: LogManager) extends Lo
     None
   }
 
-  private def handleProducerRequest(request: ProducerRequest, requestHandlerName: String) = {
+  def handleAckedProduceRequest(receive: Receive) : Option[Send] = {
+    val sTime = SystemTime.milliseconds
+    val request = ProducerRequest.readFrom(receive.buffer)
+    if(requestLogger.isTraceEnabled)
+      requestLogger.trace("Acked producer request " + request.toString)
+    handleProducerRequest(request, "AckedProduceRequest")
+    debug("kafka produce time " + (SystemTime.milliseconds - sTime) + " ms")
+    Some(new AckResponse)  // we either Ack or throw an exception and halt
+  }
+
+  def handleAckedMultiProducerRequest(receive: Receive): Option[Send] = {
+    val request = MultiProducerRequest.readFrom(receive.buffer)
+    if(requestLogger.isTraceEnabled)
+      requestLogger.trace("Acked multiproducer request " + request.toString)
+    request.produces.map(handleProducerRequest(_, "AckedMultiProducerRequest"))
+    Some(new AckResponse)  // we either Ack or throw an exception and halt
+  }
+
+  private def handleProducerRequest(request: ProducerRequest, requestHandlerName: String) {
     val partition = request.getTranslatedPartition(logManager.chooseRandomPartition)
     try {
       logManager.getOrCreateLog(request.topic, partition).append(request.messages)
@@ -81,7 +100,6 @@ private[kafka] class KafkaRequestHandlers(val logManager: LogManager) extends Lo
         }
         throw e
     }
-    None
   }
 
   def handleFetchRequest(request: Receive): Option[Send] = {

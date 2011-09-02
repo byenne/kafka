@@ -42,4 +42,8 @@ trait SyncProducerConfigShared {
   val reconnectInterval = Utils.getInt(props, "reconnect.interval", 30000)
 
   val maxMessageSize = Utils.getInt(props, "max.message.size", 1000000)
+
+  /** whether we wait or not to ACK publish requests */
+  val ackNeeded = Utils.getBoolean(props, "ack.needed", false)
+
 }

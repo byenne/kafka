@@ -30,8 +30,7 @@ private[kafka] class ByteBufferSend(val buffer: ByteBuffer) extends Send {
   
   def writeTo(channel: GatheringByteChannel): Int = {
     expectIncomplete()
-    var written = 0
-    written += channel.write(buffer)
+    val written = channel.write(buffer)
     if(!buffer.hasRemaining)
       complete = true
     written

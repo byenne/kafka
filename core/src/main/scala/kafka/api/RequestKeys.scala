@@ -23,4 +23,17 @@ object RequestKeys {
   val MultiFetch: Short = 2
   val MultiProduce: Short = 3
   val Offsets: Short = 4
+  val AckedProduce : Short = 5
+  val AckedMultiProduce : Short = 6
+
+  def name(id: Int): String = id match {
+    case Produce => "produce"
+    case Fetch => "fetch"
+    case MultiFetch => "multi-fetch"
+    case MultiProduce => "multi-produce"
+    case Offsets => "offset"
+    case AckedProduce => "acked-produce"
+    case AckedMultiProduce => "acked-multi-produce"
+    case _ => "unknown-" + id
+  }
 }

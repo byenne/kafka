@@ -71,8 +71,11 @@ class ByteBufferMessageSet(private val buffer: ByteBuffer,
   }
   
   /** Write the messages in this set to the given channel */
-  def writeTo(channel: GatheringByteChannel, offset: Long, size: Long): Long =
-    channel.write(buffer.duplicate)
+  def writeTo(channel: GatheringByteChannel, offset: Long, size: Long): Long = {
+    val buf = buffer.duplicate
+    buf.position(buf.position + offset.asInstanceOf[Int])
+    channel.write(buf)
+  }
   
   override def iterator: Iterator[MessageAndOffset] = deepIterator
 

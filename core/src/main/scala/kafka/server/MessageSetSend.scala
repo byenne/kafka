@@ -46,13 +46,12 @@ private[server] class MessageSetSend(val messages: MessageSet, val errorCode: In
 
   def writeTo(channel: GatheringByteChannel): Int = {
     expectIncomplete()
-    var written = 0
-    if(header.hasRemaining)
-      written += channel.write(header)
-    if(!header.hasRemaining) {
+    val written = if (header.hasRemaining)
+      channel.write(header)
+    else {
       val fileBytesSent = messages.writeTo(channel, sent, size - sent)
-      written += fileBytesSent.asInstanceOf[Int]
       sent += fileBytesSent
+      fileBytesSent.asInstanceOf[Int]
     }
 
     if(logger.isTraceEnabled)

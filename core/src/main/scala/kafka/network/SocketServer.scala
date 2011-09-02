@@ -253,7 +253,7 @@ private[kafka] class Processor(val handlerMapping: Handler.HandlerMapping,
    * Register any new connections that have been queued up
    */
   private def configureNewConnections() {
-    while(newConnections.size() > 0) {
+    while (!newConnections.isEmpty) {
       val channel = newConnections.poll()
       if(logger.isDebugEnabled())
         logger.debug("Listening to new connection from " + channel.socket.getRemoteSocketAddress)
@@ -266,24 +266,11 @@ private[kafka] class Processor(val handlerMapping: Handler.HandlerMapping,
    */
   private def handle(key: SelectionKey, request: Receive): Option[Send] = {
     val requestTypeId = request.buffer.getShort()
-    if(requestLogger.isTraceEnabled) {
-      requestTypeId match {
-        case RequestKeys.Produce =>
-          requestLogger.trace("Handling produce request from " + channelFor(key).socket.getRemoteSocketAddress())
-        case RequestKeys.Fetch =>
-          requestLogger.trace("Handling fetch request from " + channelFor(key).socket.getRemoteSocketAddress())
-        case RequestKeys.MultiFetch =>
-          requestLogger.trace("Handling multi-fetch request from " + channelFor(key).socket.getRemoteSocketAddress())
-        case RequestKeys.MultiProduce =>
-          requestLogger.trace("Handling multi-produce request from " + channelFor(key).socket.getRemoteSocketAddress())
-        case RequestKeys.Offsets =>
-          requestLogger.trace("Handling offset request from " + channelFor(key).socket.getRemoteSocketAddress())
-        case _ => throw new InvalidRequestException("No mapping found for handler id " + requestTypeId)
-      }
-    }
+    if(requestLogger.isTraceEnabled)
+      requestLogger.trace("Handling " + RequestKeys.name(requestTypeId) + " request from " + channelFor(key).socket.getRemoteSocketAddress())
     val handler = handlerMapping(requestTypeId, request)
     if(handler == null)
-      throw new InvalidRequestException("No handler found for request")
+      throw new InvalidRequestException("No handler found for request id " + requestTypeId)
     val start = time.nanoseconds
     val maybeSend = handler(request)
     stats.recordRequest(requestTypeId, time.nanoseconds - start)
@@ -312,7 +299,7 @@ private[kafka] class Processor(val handlerMapping: Handler.HandlerMapping,
       key.attach(null)
       // if there is a response, send it, otherwise do nothing
       if(maybeResponse.isDefined) {
-        key.attach(maybeResponse.getOrElse(None))
+        key.attach(maybeResponse.get)
         key.interestOps(SelectionKey.OP_WRITE)
       }
     } else {
