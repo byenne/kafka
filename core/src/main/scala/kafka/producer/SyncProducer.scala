@@ -124,6 +124,12 @@ class SyncProducer(val config: SyncProducerConfig) extends Logging {
     send(new BoundedByteBufferSend(new MultiProducerRequest(produces)))
   }
 
+  def startConnection() {
+    lock synchronized {
+      getOrMakeConnection()
+    }
+  }
+
   def close() = {
     lock synchronized {
       disconnect()
