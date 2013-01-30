@@ -21,14 +21,14 @@ import consumer.ConsumerConfig
 import producer.ProducerConfig
 import server.{KafkaConfig, KafkaServerStartable, KafkaServer}
 import utils.{Utils, Logging}
-import org.apache.log4j.jmx.LoggerDynamicMBean
+//import org.apache.log4j.jmx.LoggerDynamicMBean
 
 object Kafka extends Logging {
 
   def main(args: Array[String]): Unit = {
-    val kafkaLog4jMBeanName = "kafka:type=kafka.KafkaLog4j"
-    import org.apache.log4j.Logger
-    Utils.registerMBean(new LoggerDynamicMBean(Logger.getRootLogger()), kafkaLog4jMBeanName)
+    //val kafkaLog4jMBeanName = "kafka:type=kafka.KafkaLog4j"
+    //import org.apache.log4j.Logger
+    //Utils.registerMBean(new LoggerDynamicMBean(Logger.getRootLogger()), kafkaLog4jMBeanName)
 
     if (!List(1, 3).contains(args.length)) {
       println("USAGE: java [options] %s server.properties [consumer.properties producer.properties]".format(classOf[KafkaServer].getSimpleName()))

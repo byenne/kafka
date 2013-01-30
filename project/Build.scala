@@ -8,13 +8,13 @@ object BuildSettings {
 
   val buildSettings = Defaults.defaultSettings ++ Seq (
     organization := "kafka",
-    version      := "0.7.0",
+    version      := "0.7.2",
 //    crossScalaVersions := Seq("2.8.1", "2.9.1"),
     crossScalaVersions := Seq("2.9.1"),
     scalacOptions ++= Seq("-deprecation", "-unchecked"),
     crossPaths := true,
     ivyXML := ivyExclude
-  )
+  ) ++ RGMSettings.publishSettings
 
   def buildPomExtra(pom: NodeSeq, name: String, desc: String) = {
     pom ++ Seq(
